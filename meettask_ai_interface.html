@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeetTask AI — Meeting Action Extractor</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --ink: #172033;
+      --muted: #697386;
+      --line: #e6eaf1;
+      --primary: #5b5ce2;
+      --primary-dark: #4546c7;
+      --soft: #eeeeff;
+      --green: #16865b;
+      --green-bg: #e9f8f1;
+      --amber: #9b6812;
+      --amber-bg: #fff6df;
+      --shadow: 0 18px 50px rgba(28, 39, 70, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, textarea, input { font: inherit; }
+    .app { min-height: 100vh; }
+    .topbar {
+      height: 72px; background: rgba(255,255,255,.92); border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 max(24px, calc((100vw - 1160px)/2));
+      position: sticky; top: 0; z-index: 5; backdrop-filter: blur(12px);
+    }
+    .brand { display:flex; align-items:center; gap:11px; font-weight:800; letter-spacing:-.4px; font-size:18px; }
+    .brand-mark { width:36px; height:36px; display:grid; place-items:center; border-radius:12px; color:white; background:linear-gradient(135deg,#7778f4,#4d4ed0); font-weight:800; }
+    .top-right { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; }
+    .status-dot { width:8px; height:8px; border-radius:50%; background:#21a36e; display:inline-block; margin-right:6px; }
+    main { max-width:1160px; margin:0 auto; padding:48px 24px 64px; }
+    .hero { display:flex; justify-content:space-between; align-items:flex-end; gap:24px; margin-bottom:30px; }
+    .eyebrow { color:var(--primary); text-transform:uppercase; letter-spacing:1.6px; font-weight:800; font-size:11px; }
+    h1 { margin:8px 0 8px; font-size:clamp(30px,4vw,42px); line-height:1.12; letter-spacing:-1.6px; }
+    .subtitle { margin:0; color:var(--muted); max-width:620px; }
+    .hero-pill { background:var(--surface); border:1px solid var(--line); padding:9px 13px; border-radius:999px; color:var(--muted); font-size:12px; white-space:nowrap; }
+    .layout { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(280px,.8fr); gap:22px; align-items:start; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); }
+    .input-card { padding:25px; }
+    .card-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:17px; }
+    h2 { margin:0; font-size:18px; letter-spacing:-.35px; }
+    .step { color:var(--muted); font-size:12px; }
+    label { display:block; font-weight:700; font-size:13px; margin-bottom:9px; }
+    textarea {
+      width:100%; min-height:255px; resize:vertical; border:1px solid #dce1eb; border-radius:12px;
+      padding:15px; color:var(--ink); outline:none; background:#fcfdff; line-height:1.65;
+      transition:border .2s, box-shadow .2s;
+    }
+    textarea:focus, input:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(91,92,226,.12); }
+    .helper { color:var(--muted); font-size:12px; margin-top:8px; display:flex; justify-content:space-between; gap:12px; }
+    .mode-title { margin:24px 0 11px; font-size:13px; font-weight:700; }
+    .modes { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .mode {
+      border:1px solid var(--line); border-radius:12px; padding:14px; cursor:pointer; display:flex; gap:11px;
+      transition:.18s; background:white; text-align:left; color:var(--ink);
+    }
+    .mode.selected { border:1.5px solid var(--primary); background:#f7f7ff; box-shadow:0 0 0 3px rgba(91,92,226,.08); }
+    .radio { width:17px; height:17px; flex:0 0 17px; border:1.5px solid #b8c0d0; border-radius:50%; margin-top:2px; position:relative; }
+    .selected .radio { border-color:var(--primary); }
+    .selected .radio:after { content:""; position:absolute; inset:3px; border-radius:50%; background:var(--primary); }
+    .mode strong { display:block; font-size:13px; margin-bottom:3px; }
+    .mode small { color:var(--muted); display:block; font-size:11px; line-height:1.4; }
+    .mode-icon { font-size:18px; margin-right:2px; }
+    .actions { display:flex; gap:10px; margin-top:22px; }
+    .btn { border:0; border-radius:10px; padding:12px 17px; cursor:pointer; font-weight:700; transition:.18s; }
+    .btn-primary { background:var(--primary); color:white; flex:1; box-shadow:0 7px 16px rgba(91,92,226,.2); }
+    .btn-primary:hover { background:var(--primary-dark); transform:translateY(-1px); }
+    .btn-secondary { background:#f0f2f7; color:#414b5f; }
+    .btn-secondary:hover { background:#e7eaf1; }
+    .side-card { padding:22px; }
+    .side-card h2 { margin-bottom:17px; }
+    .feature { display:flex; gap:12px; margin:17px 0; }
+    .feature-icon { width:35px; height:35px; flex:0 0 35px; display:grid; place-items:center; border-radius:10px; background:var(--soft); }
+    .feature strong { display:block; font-size:13px; margin-bottom:2px; }
+    .feature p { margin:0; color:var(--muted); font-size:12px; }
+    .tip { padding:13px; background:#f7f8fc; border-radius:11px; color:var(--muted); font-size:12px; margin-top:20px; }
+    .results { margin-top:24px; display:none; }
+    .results.visible { display:block; }
+    .results-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:13px; }
+    .success { color:var(--green); background:var(--green-bg); padding:6px 10px; border-radius:999px; font-size:11px; font-weight:800; }
+    .result-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:13px; }
+    .result-item { padding:17px; background:white; border:1px solid var(--line); border-radius:13px; }
+    .item-number { color:var(--primary); font-size:10px; font-weight:800; letter-spacing:1px; }
+    .result-item h3 { margin:7px 0 13px; font-size:15px; }
+    .meta { display:grid; grid-template-columns:65px 1fr; gap:7px; font-size:12px; }
+    .meta span:nth-child(odd) { color:var(--muted); }
+    .empty { padding:25px; text-align:center; color:var(--muted); background:white; border:1px dashed #cfd5e2; border-radius:13px; }
+    .notice { margin-top:13px; padding:12px 14px; border-radius:10px; font-size:12px; display:none; }
+    .notice.show { display:block; }
+    .notice.error { color:#a33c35; background:#fff0ef; }
+    .notice.info { color:var(--amber); background:var(--amber-bg); }
+    footer { text-align:center; color:#929bad; font-size:11px; padding:24px; }
+    @media (max-width:800px) {
+      .layout { grid-template-columns:1fr; }
+      .hero { align-items:flex-start; flex-direction:column; }
+      .hero-pill { white-space:normal; }
+    }
+    @media (max-width:520px) {
+      main { padding:32px 15px 45px; }
+      .topbar { padding:0 16px; height:64px; }
+      .top-right { font-size:11px; }
+      .input-card { padding:18px; }
+      .modes { grid-template-columns:1fr; }
+      .actions { flex-direction:column; }
+      textarea { min-height:220px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">M</div> MeetTask <span style="color:var(--primary)">AI</span></div>
+    <div class="top-right"><span><i class="status-dot"></i>Workspace ready</span></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Meeting productivity workspace</div>
+        <h1>Turn conversations<br>into clear next steps.</h1>
+        <p class="subtitle">Paste your meeting notes and automatically identify action items, task owners, and deadlines.</p>
+      </div>
+      <div class="hero-pill">✦ &nbsp; Simple · Smart · Organized</div>
+    </section>
+
+    <section class="layout">
+      <div class="card input-card">
+        <div class="card-heading">
+          <h2>Meeting notes</h2>
+          <span class="step">STEP 01 / 02</span>
+        </div>
+        <label for="notes">Paste your meeting discussion</label>
+        <textarea id="notes" placeholder="Example:
+Alex: What are the main features you want on the new landing page?
+Client: We need a modern hero section and customer testimonials.
+Alex: I'll prepare the initial wireframes by Wednesday.">Website revamp kickoff
+Alex: What are the main features you want on the new landing page?
+Client: We need a modern hero section, customer testimonials, and an integrated booking calendar.
+Alex: Would you prefer Calendly integration or a custom-built solution?
+Client: Calendly works fine and keeps it simple.
+Alex: Perfect, I'll prepare the initial wireframes by Wednesday.</textarea>
+        <div class="helper"><span>Tip: Include names and deadlines for more useful results.</span><span id="charCount">0 characters</span></div>
+
+        <div class="mode-title">Choose extraction method</div>
+        <div class="modes">
+          <button class="mode selected" id="offlineMode" type="button" aria-pressed="true">
+            <span class="radio"></span><span><strong><span class="mode-icon">⚡</span> Offline extraction</strong><small>Quick pattern-based extraction. Works in this browser.</small></span>
+          </button>
+          <button class="mode" id="aiMode" type="button" aria-pressed="false">
+            <span class="radio"></span><span><strong><span class="mode-icon">✧</span> Gemini AI</strong><small>Understand flexible meeting notes using your backend.</small></span>
+          </button>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="extractBtn" type="button">Extract action items &nbsp; →</button>
+          <button class="btn btn-secondary" id="clearBtn" type="button">Clear notes</button>
+        </div>
+        <div class="notice info" id="aiNotice">Gemini mode needs a secure backend endpoint at <code>/api/extract</code>. Keep your API key on the server; never place it in this HTML file.</div>
+        <div class="notice error" id="errorNotice"></div>
+      </div>
+
+      <aside class="card side-card">
+        <h2>What you'll get</h2>
+        <div class="feature">
+          <div class="feature-icon">👤</div>
+          <div><strong>Task owner</strong><p>Identify who is responsible for each action.</p></div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">✓</div>
+          <div><strong>Action item</strong><p>Turn meeting statements into clear tasks.</p></div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">📅</div>
+          <div><strong>Deadline</strong><p>Capture due dates and relative deadlines.</p></div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">⇩</div>
+          <div><strong>Export results</strong><p>Copy or download your extracted action list.</p></div>
+        </div>
+        <div class="tip">💡 <strong>Quick tip</strong><br>For best results, write action items in a form such as “Alex will prepare the wireframes by Wednesday.”</div>
+      </aside>
+    </section>
+
+    <section class="results" id="results">
+      <div class="results-head">
+        <div><div class="eyebrow">Your meeting summary</div><h2 style="margin-top:4px">Extracted action items</h2></div>
+        <span class="success" id="resultCount">0 ITEMS FOUND</span>
+      </div>
+      <div class="result-list" id="resultList"></div>
+      <div class="actions" style="max-width:360px">
+        <button class="btn btn-secondary" id="copyBtn" type="button">Copy results</button>
+        <button class="btn btn-secondary" id="downloadBtn" type="button">Download JSON</button>
+      </div>
+    </section>
+  </main>
+  <footer>MeetTask AI · Meeting notes to action items</footer>
+</div>
+
+<script>
+  const notes = document.getElementById('notes');
+  const charCount = document.getElementById('charCount');
+  const offlineMode = document.getElementById('offlineMode');
+  const aiMode = document.getElementById('aiMode');
+  const aiNotice = document.getElementById('aiNotice');
+  const errorNotice = document.getElementById('errorNotice');
+  const results = document.getElementById('results');
+  const resultList = document.getElementById('resultList');
+  let mode = 'offline';
+  let currentActions = [];
+
+  function updateCount() {
+    charCount.textContent = `${notes.value.length} characters`;
+  }
+  notes.addEventListener('input', updateCount);
+  updateCount();
+
+  function setMode(nextMode) {
+    mode = nextMode;
+    offlineMode.classList.toggle('selected', mode === 'offline');
+    aiMode.classList.toggle('selected', mode === 'ai');
+    offlineMode.setAttribute('aria-pressed', String(mode === 'offline'));
+    aiMode.setAttribute('aria-pressed', String(mode === 'ai'));
+    aiNotice.classList.toggle('show', mode === 'ai');
+    errorNotice.classList.remove('show');
+  }
+  offlineMode.addEventListener('click', () => setMode('offline'));
+  aiMode.addEventListener('click', () => setMode('ai'));
+
+  // Mirrors the simple owner: task by deadline pattern in the Python example.
+  function offlineExtract(text) {
+    const actions = [];
+    const pattern = /^([^:\n]+):\s*(.+?)\s+by\s+([^\n.]+)[.]?$/i;
+    for (const line of text.split(/\r?\n/)) {
+      const match = line.trim().match(pattern);
+      if (match) {
+        actions.push({
+          owner: match[1].trim(),
+          task: match[2].trim(),
+          deadline: match[3].trim()
+        });
+      }
+    }
+    return actions;
+  }
+
+  function renderActions(actions) {
+    currentActions = actions;
+    resultList.innerHTML = '';
+    document.getElementById('resultCount').textContent = `${actions.length} ITEM${actions.length === 1 ? '' : 'S'} FOUND`;
+    if (!actions.length) {
+      resultList.innerHTML = '<div class="empty">No matching action items found.<br>Try a line like <strong>Alex: prepare wireframes by Wednesday.</strong></div>';
+    } else {
+      actions.forEach((item, index) => {
+        const card = document.createElement('article');
+        card.className = 'result-item';
+        const number = document.createElement('div');
+        number.className = 'item-number';
+        number.textContent = `ACTION ITEM ${String(index + 1).padStart(2, '0')}`;
+        const heading = document.createElement('h3');
+        heading.textContent = item.task;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        [['Owner', item.owner], ['Deadline', item.deadline]].forEach(([label, value]) => {
+          const l = document.createElement('span');
+          const v = document.createElement('strong');
+          l.textContent = label;
+          v.textContent = value;
+          meta.append(l, v);
+        });
+        card.append(number, heading, meta);
+        resultList.appendChild(card);
+      });
+    }
+    results.classList.add('visible');
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  document.getElementById('extractBtn').addEventListener('click', async () => {
+    errorNotice.classList.remove('show');
+    const text = notes.value.trim();
+    if (!text) {
+      errorNotice.textContent = 'Please enter your meeting notes before extracting action items.';
+      errorNotice.classList.add('show');
+      return;
+    }
+    const button = document.getElementById('extractBtn');
+    button.disabled = true;
+    button.textContent = 'Extracting…';
+    try {
+      let actions;
+      if (mode === 'offline') {
+        actions = offlineExtract(text);
+      } else {
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes: text, mode: 'gemini' })
+        });
+        if (!response.ok) throw new Error(`Backend returned ${response.status}.`);
+        const data = await response.json();
+        actions = data.actions;
+        if (!Array.isArray(actions)) throw new Error('The backend response must contain an actions array.');
+      }
+      renderActions(actions);
+    } catch (error) {
+      errorNotice.textContent = mode === 'ai'
+        ? `Gemini extraction could not run: ${error.message} Make sure your backend is running and /api/extract is configured.`
+        : `Something went wrong: ${error.message}`;
+      errorNotice.classList.add('show');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Extract action items  →';
+    }
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    notes.value = '';
+    updateCount();
+    results.classList.remove('visible');
+    errorNotice.classList.remove('show');
+    notes.focus();
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    const text = currentActions.map((a, i) =>
+      `${i + 1}. ${a.task}\nOwner: ${a.owner}\nDeadline: ${a.deadline}`
+    ).join('\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      document.getElementById('copyBtn').textContent = 'Copied!';
+      setTimeout(() => document.getElementById('copyBtn').textContent = 'Copy results', 1500);
+    } catch {
+      errorNotice.textContent = 'Clipboard access is unavailable in this browser context.';
+      errorNotice.classList.add('show');
+    }
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify({ actions: currentActions }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'meeting-action-items.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+</script>
+</body>
+</html>
